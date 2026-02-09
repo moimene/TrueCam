@@ -40,16 +40,76 @@ const Camera: React.FC = () => {
         const canvas = document.createElement('canvas');
         canvas.width = videoRef.current.videoWidth;
         canvas.height = videoRef.current.videoHeight;
-        canvas.getContext('2d')?.drawImage(videoRef.current, 0, 0);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        // Draw Video Frame
+        ctx.drawImage(videoRef.current, 0, 0);
+
+        // --- WATERMARKING START ---
+        const width = canvas.width;
+        const height = canvas.height;
+        const timestamp = new Date();
+
+        // Mock Location (In real app, use Capacitor Geolocation)
+        const location = { latitude: 40.4168, longitude: -3.7038, accuracy: 10 };
+
+        // 2. Load eIDAS Logo
+        const logoImg = new Image();
+        logoImg.src = '/assets/eidas-logo.png';
+
+        // We need to wait for logo to load, or use a Promise wrapper. 
+        // Since this is inside an async handler, we can wrap it.
+        await new Promise<void>((resolve) => {
+            logoImg.onload = () => resolve();
+            logoImg.onerror = () => {
+                console.warn("eIDAS logo failed to lead, skipping watermark logo");
+                resolve();
+            };
+            // Fallback timeout
+            setTimeout(resolve, 500);
+        });
+
+        // 3. Draw Overlay Background (Bottom Gradient)
+        const gradient = ctx.createLinearGradient(0, height - 200, 0, height);
+        gradient.addColorStop(0, 'transparent');
+        gradient.addColorStop(1, 'rgba(0,0,0,0.8)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, height - 200, width, 200);
+
+        // 4. Draw eIDAS Logo (Bottom Right)
+        const logoSize = width * 0.15; // 15% of screen width
+        const padding = 20;
+        if (logoImg.complete && logoImg.naturalWidth > 0) {
+            ctx.drawImage(logoImg, width - logoSize - padding, height - logoSize - padding, logoSize, logoSize);
+        }
+
+        // 5. Draw Text (Bottom Left)
+        ctx.fillStyle = 'white';
+        ctx.shadowColor = 'black';
+        ctx.shadowBlur = 4;
+
+        // Date & Time
+        ctx.font = 'bold 24px monospace';
+        const dateStr = timestamp.toLocaleDateString('en-GB') + ' ' + timestamp.toLocaleTimeString('en-GB'); // DD/MM/YYYY HH:mm:ss
+        ctx.fillText(dateStr, padding, height - 80);
+
+        // Location
+        ctx.font = '16px monospace';
+        const locStr = `LAT: ${location.latitude.toFixed(6)}  LON: ${location.longitude.toFixed(6)}`;
+        ctx.fillText(locStr, padding, height - 55);
+
+        // Legal Text
+        ctx.font = 'italic 14px sans-serif';
+        ctx.fillStyle = '#cccccc';
+        ctx.fillText("Qualified timestamping by QTSP EADTrust", padding, height - 30);
+        // --- WATERMARKING END ---
 
         // Convert to Blob
         canvas.toBlob(async (blob) => {
             if (!blob) return;
             const imageUrl = URL.createObjectURL(blob);
             setLastImage(imageUrl); // Show preview immediately
-
-            // 2. Mock Location (In real app, use Capacitor Geolocation)
-            const location = { latitude: 40.4168, longitude: -3.7038, accuracy: 10 };
 
             console.log("Sealing evidence...");
 
