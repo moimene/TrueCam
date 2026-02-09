@@ -90,9 +90,13 @@ export const QtspService = {
     async sealEvidence(blob: Blob, location: any): Promise<any> {
         const token = await this.getToken();
         const caseFileId = await this.getOrCreateCaseFile();
-        if (!token || !caseFileId) {
-            console.log("QTSP: Skipping seal (no token/case)");
-            return { status: 'local_only' };
+        if (!token) {
+            console.log("QTSP: Skipping seal (Auth Failed)");
+            return { status: 'local_only', error: 'QTSP Auth Failed' };
+        }
+        if (!caseFileId) {
+            console.log("QTSP: Skipping seal (Case Creation Failed)");
+            return { status: 'local_only', error: 'Case Creation Failed' };
         }
 
         try {

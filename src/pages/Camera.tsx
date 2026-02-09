@@ -19,6 +19,8 @@ const Camera: React.FC = () => {
         };
     }, []);
 
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
+
     const startCamera = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
@@ -30,6 +32,7 @@ const Camera: React.FC = () => {
             }
         } catch (err) {
             console.error("Camera error:", err);
+            setToastMessage("Camera Error: Check permissions");
         }
     };
 
@@ -74,15 +77,8 @@ const Camera: React.FC = () => {
         const logoImg = new Image();
         logoImg.src = '/assets/eidas-logo.png';
 
-        // Wait for logo to load
-        await new Promise<void>((resolve) => {
-            logoImg.onload = () => resolve();
-            logoImg.onerror = () => {
-                console.warn("eIDAS logo failed to lead, skipping watermark logo");
-                resolve();
-            };
-            setTimeout(resolve, 500);
-        });
+        // Wait for logo (short timeout)
+        await new Promise<void>((resolve) => setTimeout(resolve, 100));
 
         // 3. Draw Overlay Background (Bottom Gradient)
         const gradient = ctx.createLinearGradient(0, height - 240, 0, height);
@@ -161,8 +157,7 @@ const Camera: React.FC = () => {
             if (!blob) return;
             const imageUrl = URL.createObjectURL(blob);
             setLastImage(imageUrl); // Show preview immediately
-
-            console.log("Sealing evidence...");
+            setToastMessage("Sealing Evidence...");
 
             try {
                 // 3. Seal Evidence (Real QTSP Integration)
@@ -172,6 +167,12 @@ const Camera: React.FC = () => {
                 console.log("Starting QTSP Sealing...");
                 const qtspResult = await QtspService.sealEvidence(blob, location);
                 console.log("QTSP Result:", qtspResult);
+
+                if (qtspResult.status === 'sealed') {
+                    setToastMessage("Evidence Sealed & Certified ✅");
+                } else {
+                    setToastMessage(`Sealing Pending: ${qtspResult.error || 'Check Network/Auth'}`);
+                }
 
                 // 4. Save to Storage
                 const { StorageService } = await import('../services/storage');
@@ -199,6 +200,7 @@ const Camera: React.FC = () => {
 
             } catch (error) {
                 console.error("Sealing/Saving failed:", error);
+                setToastMessage("Error: Could not save evidence");
             }
 
         }, 'image/jpeg', 0.95);
@@ -221,6 +223,14 @@ const Camera: React.FC = () => {
                     </div>
                 </div>
             </IonContent>
+            <IonToast
+                isOpen={!!toastMessage}
+                message={toastMessage || ''}
+                duration={4000}
+                onDidDismiss={() => setToastMessage(null)}
+                position="top"
+                color={toastMessage?.includes('✅') ? 'success' : 'warning'}
+            />
         </IonPage>
     );
 };
