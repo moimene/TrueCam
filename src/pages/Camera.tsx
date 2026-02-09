@@ -134,29 +134,29 @@ const Camera: React.FC = () => {
             console.log("Sealing evidence...");
 
             try {
-                // 3. Seal Evidence (Hash + API)
-                const { sealEvidence } = await import('../services/api');
-                const result = await sealEvidence(blob, location);
+                // 3. Seal Evidence (Real QTSP Integration)
+                const { QtspService } = await import('../services/qtsp');
+                // Also import local API for hash calculation if needed, or rely on QtspService
 
-                // Check if result is valid
-                if (result.status === 'error') {
-                    console.error("Sealing returned error status");
-                    return;
-                }
-
-                console.log("Sealed!", result);
+                console.log("Starting QTSP Sealing...");
+                const qtspResult = await QtspService.sealEvidence(blob, location);
+                console.log("QTSP Result:", qtspResult);
 
                 // 4. Save to Storage
                 const { StorageService } = await import('../services/storage');
 
-                // 5. Save to Storage (Local + Cloud)
-                // We cast result to satisfy type if needed, or rely on Structural Typing
-                // Ensure 'status' compatibility if Strict 
+                // Calculate Hash locally for our verification portal
+                const { sealEvidence: localSeal } = await import('../services/api');
+                const localResult = await localSeal(blob, location);
+
                 const evidenceRecord = {
-                    ...result,
-                    status: result.status as 'pending' | 'sealed', // Force cast if api.ts has 'error'
+                    ...localResult,
+                    status: (qtspResult.status === 'sealed' ? 'sealed' : 'pending') as 'pending' | 'sealed',
                     localPath: imageUrl,
-                    location
+                    location,
+                    metadata: {
+                        qtsp_data: qtspResult
+                    }
                 };
 
                 if (user) {
@@ -164,8 +164,6 @@ const Camera: React.FC = () => {
                 } else {
                     await StorageService.saveEvidence(evidenceRecord);
                 }
-
-                // 6. Update UI (Already updated preview, but maybe show success toast)
 
             } catch (error) {
                 console.error("Sealing/Saving failed:", error);
