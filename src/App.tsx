@@ -6,6 +6,7 @@ import Camera from './pages/Camera';
 import GalleryPage from './pages/Gallery';
 import EvidenceDetail from './pages/EvidenceDetail';
 import LoginPage from './pages/Login';
+import VerifyPage from './pages/Verify';
 import { AuthProvider, useAuth } from './services/auth';
 
 setupIonicReact();
@@ -39,6 +40,9 @@ const App: React.FC = () => (
             <PrivateRoute>
               <EvidenceDetail />
             </PrivateRoute>
+          </Route>
+          <Route exact path="/verify">
+            <VerifyPage />
           </Route>
           <Route exact path="/">
             <Redirect to="/camera" />
