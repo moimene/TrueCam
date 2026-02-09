@@ -25,6 +25,7 @@
     "@types/react-router-dom": "^5.3.3",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "idb-keyval": "^6.2.2",
     "ionicons": "^8.0.13",
     "jspdf": "^4.1.0",
     "lucide-react": "^0.563.0",

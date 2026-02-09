@@ -23,30 +23,37 @@ const EvidenceDetail: React.FC = () => {
             setEvidence(data);
 
             // Determine best image source
+            let loadedUrl: string | null = null;
+
+            // 1. Try In-Memory Blob URL (Fastest)
             if (data.localPath && data.localPath.startsWith('blob:')) {
-                // Check if blob is still valid (in-memory session)
                 try {
                     const res = await fetch(data.localPath);
-                    if (res.ok) {
-                        setImageUrl(data.localPath);
-                        return;
-                    }
-                } catch (e) {
-                    // Blob revoked/expired
+                    if (res.ok) loadedUrl = data.localPath;
+                } catch (e) { /* expired */ }
+            }
+
+            // 2. Try IndexedDB (Persistent)
+            if (!loadedUrl) {
+                const blob = await StorageService.getBlob(data.evidence_id);
+                if (blob) {
+                    loadedUrl = URL.createObjectURL(blob);
                 }
             }
 
-            // Fallback to Cloud
-            if (data.storagePath) {
+            // 3. Fallback to Cloud (Supabase Storage)
+            if (!loadedUrl && data.storagePath) {
                 const { supabase } = await import('../services/supabase');
                 const { data: urlData } = await supabase.storage
                     .from('evidence-photos')
-                    .createSignedUrl(data.storagePath, 3600); // 1 hour token
+                    .createSignedUrl(data.storagePath, 3600);
 
                 if (urlData?.signedUrl) {
-                    setImageUrl(urlData.signedUrl);
+                    loadedUrl = urlData.signedUrl;
                 }
             }
+
+            setImageUrl(loadedUrl);
         }
     };
 
