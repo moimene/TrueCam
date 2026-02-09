@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">TrueCam</string>
+    <string name="title_activity_main">TrueCam</string>
+    <string name="package_name">com.truecam.app</string>
+    <string name="custom_url_scheme">com.truecam.app</string>
+</resources>
