@@ -51,8 +51,24 @@ const Camera: React.FC = () => {
         const height = canvas.height;
         const timestamp = new Date();
 
-        // Mock Location (In real app, use Capacitor Geolocation)
-        const location = { latitude: 40.4168, longitude: -3.7038, accuracy: 10 };
+        // 2. Get Real Location (if available)
+        let location = { latitude: 0, longitude: 0, accuracy: 0 };
+        try {
+            const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0
+                });
+            });
+            location = {
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+                accuracy: pos.coords.accuracy
+            };
+        } catch (e) {
+            console.warn("GPS not available or denied", e);
+        }
 
         // 2. Load eIDAS Logo
         const logoImg = new Image();
@@ -96,8 +112,12 @@ const Camera: React.FC = () => {
 
         // Location
         ctx.font = '16px monospace';
-        const locStr = `LAT: ${location.latitude.toFixed(6)}  LON: ${location.longitude.toFixed(6)}`;
-        ctx.fillText(locStr, padding, height - 55);
+        if (location.latitude !== 0 || location.longitude !== 0) {
+            const locStr = `LAT: ${location.latitude.toFixed(6)}  LON: ${location.longitude.toFixed(6)} ±${Math.round(location.accuracy)}m`;
+            ctx.fillText(locStr, padding, height - 55);
+        } else {
+            ctx.fillText("GPS LOCATION UNAVAILABLE", padding, height - 55);
+        }
 
         // Legal Text
         ctx.font = 'italic 14px sans-serif';
