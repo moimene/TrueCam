@@ -70,44 +70,75 @@ const Camera: React.FC = () => {
             console.warn("GPS not available or denied", e);
         }
 
-        // 2. Load eIDAS Logo
+        // Load eIDAS Logo
         const logoImg = new Image();
         logoImg.src = '/assets/eidas-logo.png';
 
-        // We need to wait for logo to load, or use a Promise wrapper. 
-        // Since this is inside an async handler, we can wrap it.
+        // Wait for logo to load
         await new Promise<void>((resolve) => {
             logoImg.onload = () => resolve();
             logoImg.onerror = () => {
                 console.warn("eIDAS logo failed to lead, skipping watermark logo");
                 resolve();
             };
-            // Fallback timeout
             setTimeout(resolve, 500);
         });
 
         // 3. Draw Overlay Background (Bottom Gradient)
-        const gradient = ctx.createLinearGradient(0, height - 200, 0, height);
+        const gradient = ctx.createLinearGradient(0, height - 240, 0, height);
         gradient.addColorStop(0, 'transparent');
-        gradient.addColorStop(1, 'rgba(0,0,0,0.8)');
+        gradient.addColorStop(1, 'rgba(0,0,0,0.9)');
         ctx.fillStyle = gradient;
-        ctx.fillRect(0, height - 200, width, 200);
+        ctx.fillRect(0, height - 240, width, 240);
 
-        // 4. Draw eIDAS Logo (Bottom Right)
-        const logoSize = width * 0.15; // 15% of screen width
-        const padding = 20;
-        if (logoImg.complete && logoImg.naturalWidth > 0) {
-            ctx.drawImage(logoImg, width - logoSize - padding, height - logoSize - padding, logoSize, logoSize);
+        // Generate Serial ID (UUID segment)
+        const serialId = crypto.randomUUID().split('-')[0].toUpperCase();
+
+        // Generate QR Code (URL to verification portal)
+        const verifyUrl = `${window.location.origin}/verify`;
+        let qrDataUrl = '';
+        try {
+            const QRCode = await import('qrcode');
+            qrDataUrl = await QRCode.toDataURL(verifyUrl, { margin: 1, color: { dark: '#000000', light: '#FFFFFF' } });
+        } catch (e) {
+            console.error("QR Generation failed", e);
         }
 
-        // 5. Draw Text (Bottom Left)
+        // 4. Draw QR Code (Bottom Right)
+        const qrSize = width * 0.18;
+        const padding = 20;
+
+        if (qrDataUrl) {
+            const qrImg = new Image();
+            qrImg.src = qrDataUrl;
+            await new Promise<void>((resolve) => {
+                qrImg.onload = () => resolve();
+                qrImg.onerror = () => resolve();
+            });
+            ctx.drawImage(qrImg, width - qrSize - padding, height - qrSize - padding, qrSize, qrSize);
+        }
+
+        // 5. Draw eIDAS Logo (Left of QR)
+        const logoSize = width * 0.12;
+        if (logoImg.complete && logoImg.naturalWidth > 0) {
+            // Draw to the left of QR code with some spacing
+            ctx.drawImage(logoImg, width - qrSize - padding - logoSize - 10, height - logoSize - padding, logoSize, logoSize);
+        }
+
+        // 6. Draw Text (Bottom Left)
         ctx.fillStyle = 'white';
         ctx.shadowColor = 'black';
         ctx.shadowBlur = 4;
 
+        // Serial ID
+        ctx.font = 'bold 16px monospace';
+        ctx.fillStyle = '#00C2FF';
+        ctx.fillText(`ID: ${serialId}`, padding, height - 105);
+
         // Date & Time
-        ctx.font = 'bold 24px monospace';
-        const dateStr = timestamp.toLocaleDateString('en-GB') + ' ' + timestamp.toLocaleTimeString('en-GB'); // DD/MM/YYYY HH:mm:ss
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 22px monospace';
+        const dateStr = timestamp.toLocaleDateString('en-GB') + ' ' + timestamp.toLocaleTimeString('en-GB');
         ctx.fillText(dateStr, padding, height - 80);
 
         // Location
@@ -120,9 +151,9 @@ const Camera: React.FC = () => {
         }
 
         // Legal Text
-        ctx.font = 'italic 14px sans-serif';
+        ctx.font = 'italic 12px sans-serif';
         ctx.fillStyle = '#cccccc';
-        ctx.fillText("Qualified timestamping by QTSP EADTrust", padding, height - 30);
+        ctx.fillText("Certified eIDAS Timestamp & Location by QTSP EADTrust", padding, height - 30);
         // --- WATERMARKING END ---
 
         // Convert to Blob
@@ -155,7 +186,8 @@ const Camera: React.FC = () => {
                     localPath: imageUrl,
                     location,
                     metadata: {
-                        qtsp_data: qtspResult
+                        qtsp_data: qtspResult,
+                        serialId: serialId // Uses the serialId generated in the watermarking step
                     }
                 };
 

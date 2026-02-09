@@ -1,10 +1,10 @@
 import { Preferences } from '@capacitor/preferences';
 
-const BASE_URL = import.meta.env.VITE_QTSP_BASE_URL || 'https://api.int.gcloudfactory.com/digital-trust/api';
-const LOGIN_URL = import.meta.env.VITE_QTSP_LOGIN_URL || 'https://auth.int.gcloudfactory.com/oauth/token';
+const BASE_URL = import.meta.env.VITE_QTSP_BASE_URL;
+const LOGIN_URL = import.meta.env.VITE_QTSP_LOGIN_URL;
 const CLIENT_ID = import.meta.env.VITE_QTSP_CLIENT_ID;
 const CLIENT_SECRET = import.meta.env.VITE_QTSP_CLIENT_SECRET;
-const SCOPE = import.meta.env.VITE_QTSP_SCOPE || 'token'; // check specific scope in readme
+const SCOPE = import.meta.env.VITE_QTSP_SCOPE || 'token';
 
 // Storage Keys
 const TOKEN_KEY = 'qtsp_access_token';
