@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { IonContent, IonPage } from '@ionic/react';
+import { IonContent, IonPage, IonToast } from '@ionic/react';
 import CameraHUD from '../components/layout/CameraHUD';
 import { useAuth } from '../services/auth';
 
