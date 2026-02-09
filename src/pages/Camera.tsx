@@ -1,37 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { IonContent, IonPage } from '@ionic/react';
 import CameraHUD from '../components/layout/CameraHUD';
+import { useAuth } from '../services/auth';
 
-const CameraPage: React.FC = () => {
-    const [image, setImage] = useState<string | null>(null);
-
-    // For this version we use standard Capacitor Camera plugin which opens native UI
-    // But Design Spec asks for custom HUD. 
-    // To achieve custom HUD over camera, we need @capacitor-community/camera-preview
-    // However, for MVP stability, we might use standard Camera plugin first, 
-    // or overlay HTML on top of transparent background if using preview.
-
-    // Let's implement the standard Camera flow first as per "High Availability" requirement.
-    // The user wants "Open app -> Point -> Shoot".
-    // Standard plugin launches a separate native intent.
-    // Community preview allows embedded HTML overlay.
-    // Given the "Design Spec" has specific HUD elements, we should aim for Preview if possible.
-    // But to guarantee stability in this iteration, I will simulate the HUD on a "Ready" screen
-    // that launches the native camera immediately or uses the preview.
-
-    // Decision: Use standard Camera plugin for V1 reliability.
-    // User can click a big button to launch native camera.
-    // OR, better, use a simple HTML video element with getUserMedia for web, 
-    // and Capacitor Camera for native.
-
-    // Actually, for "TrueCam", the "Seal" animation is key.
-    // I'll implement a full-screen viewfinder using HTML5 Video (works on mobile web & capacitor webview)
-    // This allows the custom HUD overlay.
-
+const Camera: React.FC = () => {
     const videoRef = React.useRef<HTMLVideoElement>(null);
+    const [lastImage, setLastImage] = useState<string | null>(null);
+    const { user } = useAuth();
 
     useEffect(() => {
         startCamera();
+        return () => {
+            // Cleanup stream if needed
+            if (videoRef.current && videoRef.current.srcObject) {
+                const stream = videoRef.current.srcObject as MediaStream;
+                stream.getTracks().forEach(track => track.stop());
+            }
+        };
     }, []);
 
     const startCamera = async () => {
@@ -61,32 +46,49 @@ const CameraPage: React.FC = () => {
         canvas.toBlob(async (blob) => {
             if (!blob) return;
             const imageUrl = URL.createObjectURL(blob);
-            setImage(imageUrl); // Show preview immediately
+            setLastImage(imageUrl); // Show preview immediately
 
             // 2. Mock Location (In real app, use Capacitor Geolocation)
-            // For MVP we mock it to ensure flow works without permissions first
             const location = { latitude: 40.4168, longitude: -3.7038, accuracy: 10 };
 
             console.log("Sealing evidence...");
 
             try {
                 // 3. Seal Evidence (Hash + API)
-                // We use dynamic imports here to keep the initial load fast
                 const { sealEvidence } = await import('../services/api');
                 const result = await sealEvidence(blob, location);
+
+                // Check if result is valid
+                if (result.status === 'error') {
+                    console.error("Sealing returned error status");
+                    return;
+                }
 
                 console.log("Sealed!", result);
 
                 // 4. Save to Storage
                 const { StorageService } = await import('../services/storage');
-                await StorageService.saveEvidence({
+
+                // 5. Save to Storage (Local + Cloud)
+                // We cast result to satisfy type if needed, or rely on Structural Typing
+                // Ensure 'status' compatibility if Strict 
+                const evidenceRecord = {
                     ...result,
-                    localPath: imageUrl, // In a real app we would write blob to Filesystem
+                    status: result.status as 'pending' | 'sealed', // Force cast if api.ts has 'error'
+                    localPath: imageUrl,
                     location
-                });
+                };
+
+                if (user) {
+                    await StorageService.saveEvidence(evidenceRecord, blob, user.id);
+                } else {
+                    await StorageService.saveEvidence(evidenceRecord);
+                }
+
+                // 6. Update UI (Already updated preview, but maybe show success toast)
 
             } catch (error) {
-                console.error("Sealing failed:", error);
+                console.error("Sealing/Saving failed:", error);
             }
 
         }, 'image/jpeg', 0.95);
@@ -103,11 +105,14 @@ const CameraPage: React.FC = () => {
                         className="h-full w-full object-cover"
                     />
 
-                    <CameraHUD onCapture={handleCapture} lastImage={image} />
+                    {/* HUD Overlay */}
+                    <div className="absolute inset-0 z-10">
+                        <CameraHUD onCapture={handleCapture} lastImage={lastImage} />
+                    </div>
                 </div>
             </IonContent>
         </IonPage>
     );
 };
 
-export default CameraPage;
+export default Camera;

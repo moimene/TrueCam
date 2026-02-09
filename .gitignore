@@ -24,3 +24,4 @@ dist-ssr
 *.sw?
 .npm-cache
 .DS_Store
+.vercel

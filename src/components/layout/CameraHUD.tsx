@@ -30,7 +30,7 @@ const CameraHUD: React.FC<CameraHUDProps> = ({ onCapture, lastImage }) => {
             {/* Bottom Bar */}
             <div className="flex items-center justify-between pb-8 pointer-events-auto">
                 {/* Gallery Thumbnail */}
-                <div className="w-12 h-12 rounded-lg bg-gray-800 border-2 border-white/20 overflow-hidden relative">
+                <div onClick={() => window.location.href = '/gallery'} className="w-12 h-12 rounded-lg bg-gray-800 border-2 border-white/20 overflow-hidden relative active:scale-95 transition-transform">
                     {lastImage ? (
                         <img src={lastImage} className="w-full h-full object-cover" alt="Last capture" />
                     ) : (
