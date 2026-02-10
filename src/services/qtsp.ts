@@ -1,10 +1,10 @@
 import { Preferences } from '@capacitor/preferences';
 
 const BASE_URL = import.meta.env.VITE_QTSP_BASE_URL;
-const LOGIN_URL = import.meta.env.VITE_QTSP_LOGIN_URL;
-const CLIENT_ID = import.meta.env.VITE_QTSP_CLIENT_ID;
-const CLIENT_SECRET = import.meta.env.VITE_QTSP_CLIENT_SECRET;
-const SCOPE = import.meta.env.VITE_QTSP_SCOPE || 'token';
+const BASE_URL = import.meta.env.VITE_QTSP_BASE_URL;
+
+// Credentials are now handled by /api/qtsp-auth proxy
+
 
 // Storage Keys
 const TOKEN_KEY = 'qtsp_access_token';
@@ -23,22 +23,19 @@ export const QtspService = {
         if (value) return value; // TODO: Check expiration
 
         // 2. Authenticate
-        if (!CLIENT_ID || !CLIENT_SECRET) {
-            console.warn("QTSP Credentials missing");
-            return null;
-        }
+        // 2. Authenticate
+        // Proxy to /api/qtsp-auth handles the credentials
+
 
         try {
-            const params = new URLSearchParams();
-            params.append('grant_type', 'client_credentials');
-            params.append('client_id', CLIENT_ID);
-            params.append('client_secret', CLIENT_SECRET);
-            params.append('scope', SCOPE);
+            // Use Vercel API Route proxy to avoid CORS and hide secrets
+            const authUrl = import.meta.env.DEV ? '/api/qtsp-auth' : '/api/qtsp-auth'; // Same for now, but explicit is good
 
-            const res = await fetch(LOGIN_URL, {
+            // Note: We don't need to send client_secret here anymore, the proxy handles it.
+            // But we can just call the endpoint.
+            const res = await fetch(authUrl, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: params
+                headers: { 'Content-Type': 'application/json' }
             });
 
             if (!res.ok) throw new Error('Auth failed');
