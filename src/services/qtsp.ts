@@ -68,8 +68,7 @@ export const QtspService = {
                 },
                 body: JSON.stringify({
                     id: crypto.randomUUID(), // Client-generated ID required
-                    name: `TrueCam Session ${new Date().toISOString()}`,
-                    description: "Evidence collected via TrueCam App"
+                    name: `TC${Date.now()}` // Short, simple alphanumeric name
                 })
             });
 
@@ -110,8 +109,7 @@ export const QtspService = {
                 },
                 body: JSON.stringify({
                     id: crypto.randomUUID(), // Client-generated ID required
-                    name: `Evidence ${new Date().getTime()}`,
-                    description: `Capture at ${location.latitude}, ${location.longitude}`
+                    name: `EV${Date.now()}`
                 })
             });
             if (!groupRes.ok) throw new Error('Create Group failed');
