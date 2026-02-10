@@ -67,7 +67,32 @@ export const QtspService = {
         const { value } = await Preferences.get({ key: CASE_FILE_KEY });
         if (value) return value;
 
-        // Create New Case File
+        // 1. Try to list existing case files (Reuse strategy)
+        try {
+            const listRes = await fetch(`/api/qtsp-proxy?path=v1/private/case-files`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (listRes.ok) {
+                const listData = await listRes.json();
+                // Ensure listData is an array and has items
+                const items = Array.isArray(listData) ? listData : (listData.items || listData.content || []);
+                if (items.length > 0) {
+                    console.log("QTSP: Reusing existing case file", items[0].id);
+                    const id = items[0].id;
+                    await Preferences.set({ key: CASE_FILE_KEY, value: id });
+                    return id;
+                }
+            }
+        } catch (e) {
+            console.warn("QTSP: List case files failed", e);
+        }
+
+        // 2. Create New Case File (Fallback)
         try {
             // PROXY CALL: POST /v1/private/case-files
             const res = await fetch(`/api/qtsp-proxy?path=v1/private/case-files`, {
@@ -77,10 +102,9 @@ export const QtspService = {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    id: generateUUID(), // Client-generated ID required
-                    name: `TrueCam-${Date.now()}`, // Short, simple alphanumeric name
-                    description: "TrueCam Evidence Session",
-                    actors: null
+                    id: generateUUID(),
+                    name: `TC-${Date.now()}`
+                    // Removed description and actors to minimize 500 error risk
                 })
             });
 
