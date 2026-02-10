@@ -67,6 +67,7 @@ export const QtspService = {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
+                    id: crypto.randomUUID(), // Client-generated ID required
                     name: `TrueCam Session ${new Date().toISOString()}`,
                     description: "Evidence collected via TrueCam App",
                     actors: []
@@ -109,6 +110,7 @@ export const QtspService = {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
+                    id: crypto.randomUUID(), // Client-generated ID required
                     name: `Evidence ${new Date().getTime()}`,
                     description: `Capture at ${location.latitude}, ${location.longitude}`
                 })
@@ -126,6 +128,7 @@ export const QtspService = {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
+                    id: crypto.randomUUID(), // Client-generated ID required
                     fileName: fileName,
                     fileSize: blob.size,
                     hash: "",
