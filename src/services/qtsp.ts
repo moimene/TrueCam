@@ -1,6 +1,6 @@
 import { Preferences } from '@capacitor/preferences';
 
-const BASE_URL = import.meta.env.VITE_QTSP_BASE_URL;
+
 
 
 // Credentials are now handled by /api/qtsp-auth proxy
@@ -59,7 +59,8 @@ export const QtspService = {
 
         // Create New Case File
         try {
-            const res = await fetch(`${BASE_URL}/v1/private/case-files`, {
+            // PROXY CALL: POST /v1/private/case-files
+            const res = await fetch(`/api/qtsp-proxy?path=v1/private/case-files`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -68,13 +69,16 @@ export const QtspService = {
                 body: JSON.stringify({
                     name: `TrueCam Session ${new Date().toISOString()}`,
                     description: "Evidence collected via TrueCam App",
-                    actors: [] // Add relevant actors if needed
+                    actors: []
                 })
             });
 
-            if (!res.ok) throw new Error('Create Case File failed');
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.details || 'Create Case File failed');
+            }
             const data = await res.json();
-            const id = data.id; // Adjust based on actual response structure (id or uuid?)
+            const id = data.id;
 
             await Preferences.set({ key: CASE_FILE_KEY, value: id });
             return id;
@@ -85,8 +89,9 @@ export const QtspService = {
     },
 
     async sealEvidence(blob: Blob, location: any): Promise<any> {
-        const token = await this.getToken();
-        const caseFileId = await this.getOrCreateCaseFile();
+        const token = await this.getToken(); // Uses auth proxy
+        const caseFileId = await this.getOrCreateCaseFile(); // Uses api proxy
+
         if (!token) {
             console.log("QTSP: Skipping seal (Auth Failed)");
             return { status: 'local_only', error: 'QTSP Auth Failed' };
@@ -97,8 +102,8 @@ export const QtspService = {
         }
 
         try {
-            // 1. Create Evidence Group
-            const groupRes = await fetch(`${BASE_URL}/v1/private/case-files/${caseFileId}/evidence-groups`, {
+            // 1. Create Evidence Group via PROXY
+            const groupRes = await fetch(`/api/qtsp-proxy?path=v1/private/case-files/${caseFileId}/evidence-groups`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -113,9 +118,9 @@ export const QtspService = {
             const groupData = await groupRes.json();
             const groupId = groupData.id;
 
-            // 2. Register Evidence
+            // 2. Register Evidence via PROXY
             const fileName = `evidence_${new Date().getTime()}.jpg`;
-            const evRes = await fetch(`${BASE_URL}/v1/private/case-files/${caseFileId}/evidence-groups/${groupId}/evidences`, {
+            const evRes = await fetch(`/api/qtsp-proxy?path=v1/private/case-files/${caseFileId}/evidence-groups/${groupId}/evidences`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -124,7 +129,7 @@ export const QtspService = {
                 body: JSON.stringify({
                     fileName: fileName,
                     fileSize: blob.size,
-                    hash: "", // Optional? Or we send calculated hash?
+                    hash: "",
                     metadata: { location }
                 })
             });
@@ -132,8 +137,8 @@ export const QtspService = {
             const evData = await evRes.json();
             const evidenceId = evData.id;
 
-            // 3. Get Upload URL
-            const urlRes = await fetch(`${BASE_URL}/v1/private/case-files/${caseFileId}/evidence-groups/${groupId}/evidences/${evidenceId}/upload-url`, {
+            // 3. Get Upload URL via PROXY
+            const urlRes = await fetch(`/api/qtsp-proxy?path=v1/private/case-files/${caseFileId}/evidence-groups/${groupId}/evidences/${evidenceId}/upload-url`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -142,9 +147,10 @@ export const QtspService = {
             });
             if (!urlRes.ok) throw new Error('Get Upload URL failed');
             const urlData = await urlRes.json();
-            const uploadUrl = urlData.uploadUrl; // check key name in spec
+            const uploadUrl = urlData.uploadUrl;
 
-            // 4. Upload Content
+            // 4. Upload Content - DIRECT CALL (Usually supports CORS)
+            // Note: If this fails with CORS, we need a separate streaming proxy, but usually GCS/S3 signed URLs are fine.
             const uploadRes = await fetch(uploadUrl, {
                 method: 'PUT',
                 body: blob,
@@ -152,8 +158,8 @@ export const QtspService = {
             });
             if (!uploadRes.ok) throw new Error('Upload to QTSP failed');
 
-            // 5. Close Group (Triggers Timestamp/Sealing)
-            await fetch(`${BASE_URL}/v1/private/case-files/${caseFileId}/evidence-groups/${groupId}/close`, {
+            // 5. Close Group (Triggers Timestamp/Sealing) via PROXY
+            await fetch(`/api/qtsp-proxy?path=v1/private/case-files/${caseFileId}/evidence-groups/${groupId}/close`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
