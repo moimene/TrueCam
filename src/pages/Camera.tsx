@@ -198,9 +198,9 @@ const Camera: React.FC = () => {
                     await StorageService.saveEvidence(evidenceRecord);
                 }
 
-            } catch (error) {
+            } catch (error: any) {
                 console.error("Sealing/Saving failed:", error);
-                setToastMessage("Error: Could not save evidence");
+                setToastMessage(`Error: ${error.message || 'Unknown error'}`);
             }
 
         }, 'image/jpeg', 0.95);
