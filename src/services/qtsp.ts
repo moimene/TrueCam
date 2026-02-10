@@ -1,7 +1,7 @@
 import { Preferences } from '@capacitor/preferences';
 
 const BASE_URL = import.meta.env.VITE_QTSP_BASE_URL;
-const BASE_URL = import.meta.env.VITE_QTSP_BASE_URL;
+
 
 // Credentials are now handled by /api/qtsp-auth proxy
 
