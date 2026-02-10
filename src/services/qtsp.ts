@@ -16,13 +16,23 @@ interface AuthResponse {
     token_type: string;
 }
 
+// Helper for consistent UUID generation
+function generateUUID() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
 export const QtspService = {
     async getToken(): Promise<string | null> {
         // 1. Try to get from local storage
         const { value } = await Preferences.get({ key: TOKEN_KEY });
         if (value) return value; // TODO: Check expiration
 
-        // 2. Authenticate
         // 2. Authenticate
         // Proxy to /api/qtsp-auth handles the credentials
 
@@ -67,8 +77,10 @@ export const QtspService = {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    id: crypto.randomUUID(), // Client-generated ID required
-                    name: `TC${Date.now()}` // Short, simple alphanumeric name
+                    id: generateUUID(), // Client-generated ID required
+                    name: `TrueCam-${Date.now()}`, // Short, simple alphanumeric name
+                    description: "TrueCam Evidence Session",
+                    actors: null
                 })
             });
 
@@ -108,11 +120,12 @@ export const QtspService = {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    id: crypto.randomUUID(), // Client-generated ID required
-                    name: `EV${Date.now()}`
+                    id: generateUUID(), // Client-generated ID required
+                    name: `Evidence-${Date.now()}`,
+                    description: "Initial Evidence Group"
                 })
             });
-            if (!groupRes.ok) throw new Error('Create Group failed');
+            if (!groupRes.ok) throw new Error('Create Group failed: ' + groupRes.status);
             const groupData = await groupRes.json();
             const groupId = groupData.id;
 
@@ -125,14 +138,14 @@ export const QtspService = {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    id: crypto.randomUUID(), // Client-generated ID required
+                    id: generateUUID(), // Client-generated ID required
                     fileName: fileName,
                     fileSize: blob.size,
                     hash: "",
                     metadata: { location }
                 })
             });
-            if (!evRes.ok) throw new Error('Create Evidence failed');
+            if (!evRes.ok) throw new Error('Create Evidence failed: ' + evRes.status);
             const evData = await evRes.json();
             const evidenceId = evData.id;
 
