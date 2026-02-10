@@ -49,13 +49,13 @@ export const QtspService = {
         }
     },
 
-    async getOrCreateCaseFile(): Promise<string | null> {
+    async getOrCreateCaseFile(): Promise<string> {
         const token = await this.getToken();
-        if (!token) return null;
+        if (!token) throw new Error("Token retrieval failed");
 
         // Check if we have one cached
         const { value } = await Preferences.get({ key: CASE_FILE_KEY });
-        if (value) return value; // Verify if it exists? For MVP assume yes.
+        if (value) return value;
 
         // Create New Case File
         try {
@@ -74,34 +74,33 @@ export const QtspService = {
             });
 
             if (!res.ok) {
-                const errData = await res.json();
-                throw new Error(errData.details || 'Create Case File failed');
+                const text = await res.text();
+                let errMsg = text;
+                try {
+                    const json = JSON.parse(text);
+                    errMsg = json.details || json.error || text;
+                } catch (e) { }
+
+                throw new Error(`CaseFile Error (${res.status}): ${errMsg}`);
             }
             const data = await res.json();
             const id = data.id;
 
             await Preferences.set({ key: CASE_FILE_KEY, value: id });
             return id;
-        } catch (e) {
-            console.error(e);
-            return null;
+        } catch (e: any) {
+            console.error("getOrCreateCaseFile failed:", e);
+            throw e; // Propagate error
         }
     },
 
     async sealEvidence(blob: Blob, location: any): Promise<any> {
-        const token = await this.getToken(); // Uses auth proxy
-        const caseFileId = await this.getOrCreateCaseFile(); // Uses api proxy
-
-        if (!token) {
-            console.log("QTSP: Skipping seal (Auth Failed)");
-            return { status: 'local_only', error: 'QTSP Auth Failed' };
-        }
-        if (!caseFileId) {
-            console.log("QTSP: Skipping seal (Case Creation Failed)");
-            return { status: 'local_only', error: 'Case Creation Failed' };
-        }
-
         try {
+            const token = await this.getToken(); // Uses auth proxy
+            if (!token) throw new Error("QTSP Auth Failed");
+
+            const caseFileId = await this.getOrCreateCaseFile(); // Uses api proxy, now throws
+
             // 1. Create Evidence Group via PROXY
             const groupRes = await fetch(`/api/qtsp-proxy?path=v1/private/case-files/${caseFileId}/evidence-groups`, {
                 method: 'POST',
@@ -174,9 +173,13 @@ export const QtspService = {
                 timestamp: new Date().toISOString()
             };
 
-        } catch (e) {
+        } catch (e: any) {
             console.error("QTSP Process Failed:", e);
-            throw e;
+            // Return the actual error message to display in the UI
+            return {
+                status: 'local_only',
+                error: e.message || "Unknown QTSP Error"
+            };
         }
     }
 };
